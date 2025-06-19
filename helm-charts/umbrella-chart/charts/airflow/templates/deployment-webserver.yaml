@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "airflow.fullname" . }}-webserver
+  labels:
+    {{- include "airflow.labels" . | nindent 4 }}
+    component: webserver
+spec:
+  replicas: {{ .Values.webserver.replicas }}
+  selector:
+    matchLabels:
+      {{- include "airflow.selectorLabels" . | nindent 6 }}
+      component: webserver
+  template:
+    metadata:
+      labels:
+        {{- include "airflow.selectorLabels" . | nindent 8 }}
+        component: webserver
+    spec:
+      serviceAccountName: {{ include "airflow.serviceAccountName" . }}
+      securityContext:
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+      initContainers:
+        - name: airflow-init
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              airflow db init
+              airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin
+          env:
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          securityContext:
+            runAsUser: {{ .Values.webserver.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.webserver.securityContext.runAsGroup }}
+            runAsNonRoot: {{ .Values.webserver.securityContext.runAsNonRoot }}
+      containers:
+        - name: webserver
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - airflow
+            - webserver
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          env:
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.webserver.resources | nindent 12 }}
+          securityContext:
+            runAsUser: {{ .Values.webserver.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.webserver.securityContext.runAsGroup }}
+            runAsNonRoot: {{ .Values.webserver.securityContext.runAsNonRoot }}
+          volumeMounts:
+            - name: airflow-config
+              mountPath: /opt/airflow/airflow.cfg
+              subPath: airflow.cfg
+              readOnly: true
+            {{- if .Values.dags.persistence.enabled }}
+            - name: dags
+              mountPath: /opt/airflow/dags
+            {{- end }}
+            {{- if .Values.logs.persistence.enabled }}
+            - name: logs
+              mountPath: /opt/airflow/logs
+            {{- end }}
+      volumes:
+        - name: airflow-config
+          configMap:
+            name: {{ include "airflow.fullname" . }}-config
+        {{- if .Values.dags.persistence.enabled }}
+        - name: dags
+          persistentVolumeClaim:
+            claimName: {{ include "airflow.fullname" . }}-dags-pvc
+        {{- end }}
+        {{- if .Values.logs.persistence.enabled }}
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ include "airflow.fullname" . }}-logs-pvc
+        {{- end }}

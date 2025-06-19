@@ -1,0 +1,35 @@
+{{- if .Values.dags.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "airflow.fullname" . }}-dags-pvc
+  labels:
+    {{- include "airflow.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.dags.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.dags.persistence.size }}
+  {{- if .Values.dags.persistence.storageClass }}
+  storageClassName: {{ .Values.dags.persistence.storageClass }}
+  {{- end }}
+{{- end }}
+---
+{{- if .Values.logs.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "airflow.fullname" . }}-logs-pvc
+  labels:
+    {{- include "airflow.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.logs.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.logs.persistence.size }}
+  {{- if .Values.logs.persistence.storageClass }}
+  storageClassName: {{ .Values.logs.persistence.storageClass }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "airflow.fullname" . }}-config
+  labels:
+    {{- include "airflow.labels" . | nindent 4 }}
+data:
+  airflow.cfg: |
+    [core]
+    executor = {{ .Values.executor }}
+    sql_alchemy_conn = postgresql+psycopg2://{{ .Values.database.username }}:{{ .Values.database.password }}@{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.database }}
+    dags_folder = /opt/airflow/dags
+    base_log_folder = /opt/airflow/logs
+    remote_logging = False
+    remote_base_log_folder = 
+    remote_log_conn_id = 
+    encrypt_s3_logs = False
+    logging_level = INFO
+    fab_logging_level = WARN
+    logging_config_class = 
+    colored_console_log = True
+    colored_log_format = [%%(blue)s%%(asctime)s%%(reset)s] {%%(blue)s%%(filename)s:%%(reset)s%%(lineno)d} %%(log_color)s%%(levelname)s%%(reset)s - %%(log_color)s%%(message)s%%(reset)s
+    colored_formatter_class = airflow.utils.log.colored_log.CustomTTYColoredFormatter
+    log_format = [%%(asctime)s] {%%(filename)s:%%(lineno)d} %%(levelname)s - %%(message)s
+    simple_log_format = %%(asctime)s %%(levelname)s - %%(message)s
+    task_log_prefix_template = 
+    log_filename_template = {{ "{{ ti.dag_id }}" }}/{{ "{{ ti.task_id }}" }}/{{ "{{ ts }}" }}/{{ "{{ try_number }}" }}.log
+    log_processor_filename_template = {{ "{{ filename }}" }}.log
+    dag_processor_manager_log_location = /opt/airflow/logs/dag_processor_manager/dag_processor_manager.log
+    hostname_callable = socket:getfqdn
+    default_timezone = utc
+    max_active_runs_per_dag = {{ .Values.config.AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG | default "16" }}
+    dags_are_paused_at_creation = {{ .Values.config.AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION | default "True" }}
+    load_examples = {{ .Values.config.AIRFLOW__CORE__LOAD_EXAMPLES | default "False" }}
+
+    [scheduler]
+    dag_dir_list_interval = {{ .Values.config.AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL | default "300" }}
+    
+    [webserver]
+    base_url = http://localhost:{{ .Values.webserver.service.port }}
+    web_server_host = 0.0.0.0
+    web_server_port = {{ .Values.webserver.service.port }}
+    web_server_ssl_cert = 
+    web_server_ssl_key = 
+    web_server_master_timeout = 120
+    web_server_worker_timeout = 120
+    worker_refresh_batch_size = 1
+    worker_refresh_interval = 30
+    secret_key = temporary_key
+    workers = 4
+    worker_class = sync
+    access_logfile = -
+    error_logfile = -
+    expose_config = {{ .Values.config.AIRFLOW__WEBSERVER__EXPOSE_CONFIG | default "True" }}
+    authenticate = False
+    rbac = {{ .Values.config.AIRFLOW__WEBSERVER__RBAC | default "False" }}
+
+    [kubernetes]
+    namespace = {{ .Values.env | selectattr("name", "equalto", "AIRFLOW__KUBERNETES__NAMESPACE") | map(attribute="value") | first | default .Release.Namespace }}
+    airflow_configmap = {{ include "airflow.fullname" . }}-config
+    worker_container_repository = {{ .Values.env | selectattr("name", "equalto", "AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY") | map(attribute="value") | first }}
+    worker_container_tag = {{ .Values.env | selectattr("name", "equalto", "AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG") | map(attribute="value") | first }}
+    delete_worker_pods = True
+    
+    [api]
+    auth_backend = airflow.api.auth.backend.default
