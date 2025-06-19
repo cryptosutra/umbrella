@@ -1,0 +1,133 @@
+# Airflow image configuration
+image:
+  registry: "nexus.enterprise.com"
+  repository: "airflow"
+  tag: "2.10.0"
+  pullPolicy: "IfNotPresent"
+
+# Airflow executor configuration
+executor: "KubernetesExecutor"
+
+# Database configuration
+database:
+  type: "postgresql"
+  host: "enterprise-data-platform-postgresql"
+  port: 5432
+  database: "airflow"
+  username: "airflow"
+  password: "airflow123"
+
+# Webserver configuration
+webserver:
+  enabled: true
+  replicas: 1
+  service:
+    type: "ClusterIP"
+    port: 8080
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+
+# Scheduler configuration  
+scheduler:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+
+# Worker configuration (for KubernetesExecutor)
+worker:
+  persistence:
+    enabled: false
+  
+# DAGs configuration
+dags:
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+    accessMode: "ReadWriteMany"
+
+# Logs configuration
+logs:
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+    accessMode: "ReadWriteOnce"
+
+# Service account
+serviceAccount:
+  create: true
+  name: "airflow"
+  annotations: {}
+
+# RBAC
+rbac:
+  create: true
+
+# Spark connection configuration
+connections:
+  spark:
+    conn_type: "spark"
+    host: "k8s://https://kubernetes.default.svc.cluster.local:443"
+    extra: |
+      {
+        "spark.kubernetes.container.image": "nexus.enterprise.com/spark:3.5.0",
+        "spark.kubernetes.namespace": "data-platform",
+        "spark.kubernetes.authenticate.driver.serviceAccountName": "spark-driver",
+        "spark.kubernetes.authenticate.executor.serviceAccountName": "spark-executor"
+      }
+
+# Environment variables
+env:
+  - name: "AIRFLOW__CORE__EXECUTOR"
+    value: "KubernetesExecutor"
+  - name: "AIRFLOW__KUBERNETES__NAMESPACE"
+    value: "data-platform"
+  - name: "AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY"
+    value: "nexus.enterprise.com/airflow"
+  - name: "AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG"
+    value: "2.10.0"
+  - name: "AIRFLOW__CORE__SQL_ALCHEMY_CONN"
+    value: "postgresql+psycopg2://airflow:airflow123@enterprise-data-platform-postgresql:5432/airflow"
+  - name: "AIRFLOW__CELERY__RESULT_BACKEND"
+    value: "db+postgresql://airflow:airflow123@enterprise-data-platform-postgresql:5432/airflow"
+
+# Airflow configuration
+config:
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: "16"
+  AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "300"
+  AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+  AIRFLOW__WEBSERVER__RBAC: "true"
+
+# Security context
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  runAsNonRoot: true
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity: {}
