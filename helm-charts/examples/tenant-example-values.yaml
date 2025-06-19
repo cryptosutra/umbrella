@@ -1,0 +1,129 @@
+# Example tenant configuration for the enterprise data platform
+# This file shows how tenants can customize their deployment
+
+# Global tenant configuration
+global:
+  tenant:
+    name: "acme-corp"
+    namespace: "acme-data-platform"
+  
+  # Tenant's private Nexus registry
+  imageRegistry:
+    url: "nexus.acme-corp.com"
+    username: "acme-service-account"
+    password: "acme-registry-password"
+  
+  # Storage configuration for tenant environment
+  storage:
+    storageClass: "premium-ssd"
+    accessMode: "ReadWriteOnce"
+
+# PostgreSQL customization
+postgresql:
+  auth:
+    postgresPassword: "acme-postgres-secure-password"
+    password: "acme-airflow-db-password"
+  primary:
+    persistence:
+      size: 50Gi  # Larger database for enterprise workload
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+
+# Spark customization with tenant's Spark image
+spark:
+  image:
+    registry: "nexus.acme-corp.com"
+    repository: "acme/spark-custom"
+    tag: "3.5.0-acme-v1.2"
+  
+  # Scale up for production workload
+  executor:
+    instances: 5
+    memory: "2g"
+    cores: 2
+  
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+
+# Airflow customization with tenant's image and workflows
+airflow:
+  image:
+    registry: "nexus.acme-corp.com"
+    repository: "acme/airflow-custom"
+    tag: "2.10.0-acme-v1.5"
+  
+  # Production-ready scaling
+  webserver:
+    replicas: 2
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+  
+  scheduler:
+    replicas: 2
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+  
+  # Larger storage for DAGs and logs
+  dags:
+    persistence:
+      size: 20Gi
+      storageClass: "premium-ssd"
+  
+  logs:
+    persistence:
+      size: 50Gi
+      storageClass: "premium-ssd"
+  
+  # Tenant-specific environment variables
+  env:
+    - name: "AIRFLOW__CORE__EXECUTOR"
+      value: "KubernetesExecutor"
+    - name: "AIRFLOW__KUBERNETES__NAMESPACE"
+      value: "acme-data-platform"
+    - name: "AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY"
+      value: "nexus.acme-corp.com/acme/airflow-custom"
+    - name: "AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG"
+      value: "2.10.0-acme-v1.5"
+    - name: "ACME_CUSTOM_CONFIG"
+      value: "production"
+
+# Enable ingress for tenant access
+networking:
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hosts:
+      - host: airflow.acme-corp.com
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              name: airflow-webserver
+              port: 8080
+    tls:
+      - secretName: airflow-acme-tls
+        hosts:
+          - airflow.acme-corp.com
