@@ -1,0 +1,11 @@
+apiVersion: v2
+name: airflow
+description: Apache Airflow workflow orchestration with PostgreSQL backend and Spark integration
+type: application
+version: 1.0.0
+appVersion: "2.10.0"
+keywords:
+  - airflow
+  - workflow
+  - orchestration
+  - openshift
