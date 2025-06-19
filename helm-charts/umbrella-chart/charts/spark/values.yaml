@@ -1,0 +1,82 @@
+# Spark image configuration
+image:
+  registry: "nexus.enterprise.com"
+  repository: "spark"
+  tag: "3.5.0"
+  pullPolicy: "IfNotPresent"
+
+# Driver configuration
+driver:
+  cores: 1
+  memory: "1g"
+  serviceAccount: "spark-driver"
+  labels: {}
+  annotations: {}
+  
+# Executor configuration  
+executor:
+  cores: 1
+  memory: "1g"
+  instances: 2
+  serviceAccount: "spark-executor"
+  labels: {}
+  annotations: {}
+
+# Spark configuration
+sparkConf:
+  "spark.kubernetes.container.image.pullPolicy": "IfNotPresent"
+  "spark.kubernetes.authenticate.driver.serviceAccountName": "spark-driver"
+  "spark.kubernetes.authenticate.executor.serviceAccountName": "spark-executor"
+  "spark.sql.adaptive.enabled": "true"
+  "spark.sql.adaptive.coalescePartitions.enabled": "true"
+  "spark.kubernetes.executor.deleteOnTermination": "true"
+  "spark.kubernetes.executor.podNamePrefix": "spark-executor"
+
+# Service accounts
+serviceAccounts:
+  driver:
+    create: true
+    name: "spark-driver"
+    annotations: {}
+  executor:
+    create: true
+    name: "spark-executor"
+    annotations: {}
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Resource configuration
+resources:
+  driver:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  executor:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Security context
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  runAsNonRoot: true
+
+# Monitoring
+monitoring:
+  enabled: false
+  port: 4040
