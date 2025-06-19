@@ -1,0 +1,35 @@
+apiVersion: v2
+name: enterprise-data-platform
+description: Umbrella Helm chart for Apache Airflow, Spark, and PostgreSQL on OpenShift
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - airflow
+  - spark
+  - postgresql
+  - data-platform
+  - openshift
+home: https://github.com/enterprise/data-platform
+sources:
+  - https://github.com/apache/airflow
+  - https://github.com/apache/spark
+  - https://github.com/postgres/postgres
+maintainers:
+  - name: Data Platform Team
+    email: data-platform@enterprise.com
+dependencies:
+  - name: postgresql
+    version: "1.0.0"
+    repository: "file://charts/postgresql"
+    condition: postgresql.enabled
+  - name: spark
+    version: "1.0.0" 
+    repository: "file://charts/spark"
+    condition: spark.enabled
+  - name: airflow
+    version: "1.0.0"
+    repository: "file://charts/airflow"
+    condition: airflow.enabled
+    tags:
+      - orchestration
