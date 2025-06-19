@@ -1,0 +1,199 @@
+# Global configuration for all charts
+global:
+  # Tenant configuration
+  tenant:
+    name: "default-tenant"
+    namespace: "data-platform"
+  
+  # Image registry configuration
+  imageRegistry:
+    url: "nexus.enterprise.com"
+    username: ""
+    password: ""
+    # Image pull secrets will be created automatically
+    pullSecrets: []
+  
+  # Storage configuration
+  storage:
+    storageClass: "gp2"
+    accessMode: "ReadWriteOnce"
+  
+  # Security context for OpenShift
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  
+  # Network configuration
+  network:
+    domain: "cluster.local"
+    
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  auth:
+    enablePostgresUser: true
+    postgresPassword: "postgres123"
+    username: "airflow"
+    password: "airflow123"
+    database: "airflow"
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+    securityContext:
+      enabled: true
+      runAsUser: 1000
+      fsGroup: 1000
+  image:
+    registry: "registry.redhat.io"
+    repository: "rhel8/postgresql-13"
+    tag: "latest"
+
+# Apache Spark configuration  
+spark:
+  enabled: true
+  image:
+    registry: "nexus.enterprise.com"
+    repository: "spark"
+    tag: "3.5.0"
+    pullPolicy: "IfNotPresent"
+  
+  driver:
+    cores: 1
+    memory: "1g"
+    serviceAccount: "spark-driver"
+    
+  executor:
+    cores: 1
+    memory: "1g" 
+    instances: 2
+    
+  # Spark configuration
+  sparkConf:
+    "spark.kubernetes.container.image.pullPolicy": "IfNotPresent"
+    "spark.kubernetes.authenticate.driver.serviceAccountName": "spark-driver"
+    "spark.kubernetes.authenticate.executor.serviceAccountName": "spark-executor"
+    "spark.sql.adaptive.enabled": "true"
+    "spark.sql.adaptive.coalescePartitions.enabled": "true"
+    
+  # Resource limits
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+# Apache Airflow configuration
+airflow:
+  enabled: true
+  
+  # Airflow image configuration
+  image:
+    registry: "nexus.enterprise.com"
+    repository: "airflow"
+    tag: "2.10.0"
+    pullPolicy: "IfNotPresent"
+    
+  # Airflow executor configuration
+  executor: "KubernetesExecutor"
+  
+  # Database configuration (connects to PostgreSQL)
+  database:
+    type: "postgresql"
+    host: "enterprise-data-platform-postgresql"
+    port: 5432
+    database: "airflow"
+    username: "airflow"
+    password: "airflow123"
+    
+  # Webserver configuration
+  webserver:
+    enabled: true
+    replicas: 1
+    service:
+      type: "ClusterIP"
+      port: 8080
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+        
+  # Scheduler configuration
+  scheduler:
+    enabled: true
+    replicas: 1
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+        
+  # DAGs configuration
+  dags:
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: "gp2"
+      accessMode: "ReadWriteMany"
+      
+  # Logs configuration  
+  logs:
+    persistence:
+      enabled: true
+      size: 10Gi
+      
+  # Spark connection configuration
+  connections:
+    spark:
+      conn_type: "spark"
+      host: "spark://spark-master:7077"
+      
+  # Environment variables
+  env:
+    - name: "AIRFLOW__CORE__EXECUTOR"
+      value: "KubernetesExecutor"
+    - name: "AIRFLOW__KUBERNETES__NAMESPACE"
+      value: "data-platform"
+    - name: "AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY"
+      value: "nexus.enterprise.com/airflow"
+    - name: "AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG"
+      value: "2.10.0"
+      
+# Monitoring and observability
+monitoring:
+  enabled: false
+  prometheus:
+    enabled: false
+  grafana:
+    enabled: false
+    
+# Networking
+networking:
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    hosts:
+      - host: airflow.enterprise.com
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              name: airflow-webserver
+              port: 8080
