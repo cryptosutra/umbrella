@@ -1,0 +1,384 @@
+# Production-ready configuration for the Enterprise Data Platform
+# This configuration is optimized for production workloads with high availability,
+# performance, and security considerations
+
+global:
+  tenant:
+    name: "production-tenant"
+    namespace: "data-platform-prod"
+  
+  imageRegistry:
+    url: "nexus.enterprise.com"
+    username: "prod-service-account"
+    password: "prod-registry-password"
+    pullSecrets: []
+  
+  storage:
+    storageClass: "premium-ssd"
+    accessMode: "ReadWriteOnce"
+  
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+# PostgreSQL Production Configuration
+postgresql:
+  enabled: true
+  
+  auth:
+    enablePostgresUser: true
+    postgresPassword: "super-secure-postgres-password"
+    username: "airflow"
+    password: "secure-airflow-db-password"
+    database: "airflow"
+  
+  primary:
+    name: "primary"
+    
+    persistence:
+      enabled: true
+      size: 200Gi  # Large storage for production
+      storageClass: "premium-ssd"
+      accessMode: "ReadWriteOnce"
+    
+    # Production-grade resources
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+    
+    # Enhanced security context
+    securityContext:
+      enabled: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      runAsNonRoot: true
+    
+    podSecurityContext:
+      enabled: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      runAsNonRoot: true
+  
+  service:
+    type: "ClusterIP"
+    port: 5432
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9187"
+  
+  # Enable metrics for monitoring
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# Apache Spark Production Configuration
+spark:
+  enabled: true
+  
+  image:
+    registry: "nexus.enterprise.com"
+    repository: "spark"
+    tag: "3.5.0-prod"
+    pullPolicy: "IfNotPresent"
+  
+  # Production driver configuration
+  driver:
+    cores: 2
+    memory: "4g"
+    serviceAccount: "spark-driver"
+    labels:
+      environment: "production"
+      component: "spark-driver"
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "4040"
+  
+  # Production executor configuration
+  executor:
+    cores: 2
+    memory: "4g"
+    instances: 5  # Higher initial executor count
+    serviceAccount: "spark-executor"
+    labels:
+      environment: "production"
+      component: "spark-executor"
+  
+  # Optimized Spark configuration for production
+  sparkConf:
+    "spark.kubernetes.container.image.pullPolicy": "IfNotPresent"
+    "spark.kubernetes.authenticate.driver.serviceAccountName": "spark-driver"
+    "spark.kubernetes.authenticate.executor.serviceAccountName": "spark-executor"
+    "spark.sql.adaptive.enabled": "true"
+    "spark.sql.adaptive.coalescePartitions.enabled": "true"
+    "spark.sql.adaptive.skewJoin.enabled": "true"
+    "spark.kubernetes.executor.deleteOnTermination": "true"
+    "spark.kubernetes.executor.podNamePrefix": "spark-executor"
+    "spark.dynamicAllocation.enabled": "true"
+    "spark.dynamicAllocation.minExecutors": "2"
+    "spark.dynamicAllocation.maxExecutors": "20"
+    "spark.dynamicAllocation.initialExecutors": "5"
+    "spark.serializer": "org.apache.spark.serializer.KryoSerializer"
+    "spark.sql.execution.arrow.pyspark.enabled": "true"
+  
+  serviceAccounts:
+    driver:
+      create: true
+      name: "spark-driver"
+      annotations:
+        eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/spark-driver-role"
+    executor:
+      create: true
+      name: "spark-executor"
+      annotations:
+        eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/spark-executor-role"
+  
+  rbac:
+    create: true
+  
+  # Production-grade resources
+  resources:
+    driver:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "8Gi"
+        cpu: "4000m"
+    executor:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "8Gi"
+        cpu: "4000m"
+  
+  # Node affinity for dedicated Spark nodes
+  nodeSelector:
+    workload-type: "compute-intensive"
+  
+  # Tolerations for tainted nodes
+  tolerations:
+    - key: "spark-workload"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+  
+  # Anti-affinity for executor distribution
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: "component"
+                  operator: In
+                  values: ["spark-executor"]
+            topologyKey: "kubernetes.io/hostname"
+
+# Apache Airflow Production Configuration
+airflow:
+  enabled: true
+  
+  image:
+    registry: "nexus.enterprise.com"
+    repository: "airflow"
+    tag: "2.10.0-prod"
+    pullPolicy: "IfNotPresent"
+  
+  executor: "KubernetesExecutor"
+  
+  # Database connection with production settings
+  database:
+    type: "postgresql"
+    host: "enterprise-data-platform-postgresql"
+    port: 5432
+    database: "airflow"
+    username: "airflow"
+    password: "secure-airflow-db-password"
+  
+  # High-availability webserver
+  webserver:
+    enabled: true
+    replicas: 3  # Multiple replicas for HA
+    service:
+      type: "ClusterIP"
+      port: 8080
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+    
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      runAsNonRoot: true
+    
+    # Health checks
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: http
+      initialDelaySeconds: 60
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 5
+    
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: http
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+  
+  # High-availability scheduler
+  scheduler:
+    enabled: true
+    replicas: 2  # Multiple replicas for HA
+    
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+    
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      runAsNonRoot: true
+  
+  # Production DAGs storage
+  dags:
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: "premium-ssd"
+      accessMode: "ReadWriteMany"  # Shared across pods
+  
+  # Production logs storage
+  logs:
+    persistence:
+      enabled: true
+      size: 200Gi
+      storageClass: "premium-ssd"
+      accessMode: "ReadWriteOnce"
+  
+  serviceAccount:
+    create: true
+    name: "airflow"
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/airflow-role"
+  
+  rbac:
+    create: true
+  
+  # Production environment variables
+  env:
+    - name: "AIRFLOW__CORE__EXECUTOR"
+      value: "KubernetesExecutor"
+    - name: "AIRFLOW__KUBERNETES__NAMESPACE"
+      value: "data-platform-prod"
+    - name: "AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY"
+      value: "nexus.enterprise.com/airflow"
+    - name: "AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG"
+      value: "2.10.0-prod"
+    - name: "AIRFLOW__CORE__SQL_ALCHEMY_CONN"
+      value: "postgresql+psycopg2://airflow:secure-airflow-db-password@enterprise-data-platform-postgresql:5432/airflow"
+    - name: "AIRFLOW__CELERY__RESULT_BACKEND"
+      value: "db+postgresql://airflow:secure-airflow-db-password@enterprise-data-platform-postgresql:5432/airflow"
+    - name: "AIRFLOW__LOGGING__REMOTE_LOGGING"
+      value: "True"
+    - name: "AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER"
+      value: "s3://airflow-logs-bucket"
+    - name: "AIRFLOW__CORE__FERNET_KEY"
+      valueFrom:
+        secretRef:
+          name: "airflow-secrets"
+          key: "fernet-key"
+  
+  # Production Airflow configuration
+  config:
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: "32"
+    AIRFLOW__CORE__PARALLELISM: "64"
+    AIRFLOW__CORE__DAG_CONCURRENCY: "32"
+    AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: "32"
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "60"
+    AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: "30"
+    AIRFLOW__SCHEDULER__CATCHUP_BY_DEFAULT: "false"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "false"
+    AIRFLOW__WEBSERVER__RBAC: "true"
+    AIRFLOW__WEBSERVER__AUTHENTICATE: "true"
+    AIRFLOW__WEBSERVER__AUTH_BACKEND: "airflow.contrib.auth.backends.ldap_auth"
+  
+  # Node selection for Airflow components
+  nodeSelector:
+    workload-type: "orchestration"
+  
+  # Tolerations for dedicated nodes
+  tolerations:
+    - key: "airflow-workload"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+# Production networking configuration
+networking:
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/rate-limit: "100"
+      nginx.ingress.kubernetes.io/rate-limit-rps: "10"
+    
+    hosts:
+      - host: airflow.enterprise.com
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              name: airflow-webserver
+              port: 8080
+    
+    tls:
+      - secretName: airflow-enterprise-tls
+        hosts:
+          - airflow.enterprise.com
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 10s
+  grafana:
+    enabled: true
+    dashboards:
+      enabled: true
