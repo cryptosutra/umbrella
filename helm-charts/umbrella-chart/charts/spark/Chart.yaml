@@ -1,0 +1,11 @@
+apiVersion: v2
+name: spark
+description: Apache Spark for distributed computing with Kubernetes-native execution
+type: application
+version: 1.0.0
+appVersion: "3.5.0"
+keywords:
+  - spark
+  - distributed-computing
+  - kubernetes
+  - openshift
